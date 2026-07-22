@@ -1,0 +1,8 @@
+CREATE TABLE rooms (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    room_code VARCHAR(20) NOT NULL UNIQUE,
+    host_user_id BIGINT NOT NULL,
+    room_name VARCHAR(100),
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
