@@ -12,7 +12,7 @@ export default function Login() {
   const { login, loading, error } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const destination = location.state?.from?.pathname ?? '/rooms'
+  const destination = location.state?.from?.pathname ?? '/'
 
   const updateField = ({ target: { name, value } }) => {
     setCredentials((current) => ({ ...current, [name]: value }))
