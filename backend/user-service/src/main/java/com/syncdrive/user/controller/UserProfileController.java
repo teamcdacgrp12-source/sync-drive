@@ -59,4 +59,23 @@ public class UserProfileController {
 			return ResponseEntity.internalServerError().build();
 		}
 	}
+
+	@GetMapping("/uploads/{filename:.+}")
+	public ResponseEntity<org.springframework.core.io.Resource> getAvatar(@PathVariable String filename) {
+		try {
+			java.nio.file.Path serviceDirectory = java.nio.file.Paths.get(System.getProperty("user.dir"));
+			java.nio.file.Path sharedPath = serviceDirectory.getParent().resolve("uploads").resolve(filename);
+			java.nio.file.Path localPath = serviceDirectory.resolve("uploads").resolve(filename);
+			java.nio.file.Path path = java.nio.file.Files.exists(sharedPath) ? sharedPath : localPath;
+			if (!java.nio.file.Files.exists(path)) {
+				return ResponseEntity.notFound().build();
+			}
+			org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
+			return resource.isReadable()
+					? ResponseEntity.ok().header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg").body(resource)
+					: ResponseEntity.notFound().build();
+		} catch (Exception exception) {
+			return ResponseEntity.internalServerError().build();
+		}
+	}
 }
