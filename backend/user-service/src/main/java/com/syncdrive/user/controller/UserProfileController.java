@@ -1,6 +1,7 @@
 package com.syncdrive.user.controller;
 
 import java.util.List;
+import java.io.IOException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.syncdrive.user.dto.UserProfileResponse;
 import com.syncdrive.user.dto.UserProfileUpdateRequest;
@@ -46,5 +48,15 @@ public class UserProfileController {
 	@PostMapping("/internal/create")
 	public ResponseEntity<UserProfileResponse> createProfile(@RequestParam Long userId, @RequestParam String username) {
 		return ResponseEntity.ok(userProfileService.createInitialProfile(userId, username));
+	}
+
+	@PostMapping("/upload-avatar")
+	public ResponseEntity<UserProfileResponse> uploadAvatar(@RequestHeader("X-User-Id") Long userId,
+			@RequestParam("file") MultipartFile file) {
+		try {
+			return ResponseEntity.ok(userProfileService.uploadAvatar(userId, file));
+		} catch (IOException exception) {
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 }

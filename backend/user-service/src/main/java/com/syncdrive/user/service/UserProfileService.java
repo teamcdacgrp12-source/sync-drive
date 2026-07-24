@@ -1,10 +1,13 @@
 package com.syncdrive.user.service;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.syncdrive.user.dto.UserProfileResponse;
 import com.syncdrive.user.dto.UserProfileUpdateRequest;
@@ -51,6 +54,21 @@ public class UserProfileService {
 		profile.setUserId(userId);
 		profile.setUsername(username);
 		profile.setDisplayName(username);
+		return mapToResponse(userProfileRepository.save(profile));
+	}
+
+	@Transactional
+	public UserProfileResponse uploadAvatar(Long userId, MultipartFile file) throws IOException {
+		UserProfile profile = userProfileRepository.findByUserId(userId)
+				.orElseThrow(() -> new RuntimeException("User not found"));
+		String fileName = userId + "_" + System.currentTimeMillis() + ".jpg";
+		java.nio.file.Path backendDirectory = java.nio.file.Paths.get(System.getProperty("user.dir")).getParent();
+		File uploadDirectory = backendDirectory.resolve("uploads").toFile();
+		if (!uploadDirectory.exists()) {
+			uploadDirectory.mkdirs();
+		}
+		file.transferTo(new File(uploadDirectory, fileName));
+		profile.setAvatarUrl("/uploads/" + fileName);
 		return mapToResponse(userProfileRepository.save(profile));
 	}
 
