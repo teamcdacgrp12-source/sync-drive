@@ -30,6 +30,12 @@ public class Room {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "is_public", nullable = false)
+    private boolean isPublic = true;
+
+    @Column(name = "max_users")
+    private Integer maxUsers;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -39,8 +45,16 @@ public class Room {
         this.roomCode = roomCode;
         this.hostUserId = hostUserId;
         this.roomName = roomName;
-		this.active = true;
-	
+        this.active = true;
+    }
+
+    public Room(String roomCode, Long hostUserId, String roomName, boolean isPublic, Integer maxUsers) {
+        this.roomCode = roomCode;
+        this.hostUserId = hostUserId;
+        this.roomName = roomName;
+        this.isPublic = isPublic;
+        this.maxUsers = maxUsers;
+        this.active = true;
     }
 
     @PrePersist
@@ -53,7 +67,11 @@ public class Room {
     public Long getHostUserId() { return hostUserId; }
     public String getRoomName() { return roomName; }
     public boolean isActive() { return active; }
+    public boolean isPublic() { return isPublic; }
+    public Integer getMaxUsers() { return maxUsers; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setRoomName(String roomName) { this.roomName = roomName; }
+    public void setPublic(boolean isPublic) { this.isPublic = isPublic; }
+    public void setMaxUsers(Integer maxUsers) { this.maxUsers = maxUsers; }
     public void closeRoom() { this.active = false; }
 }
