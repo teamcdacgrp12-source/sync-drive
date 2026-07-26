@@ -39,6 +39,7 @@ const parsePayload = (payload) => {
 }
 
 export const isSocketConnected = () => Boolean(stompClient?.connected)
+export const getActiveRoomId = () => activeRoomId
 
 export const configureSocket = ({ url = defaultSocketUrl, headers = {} } = {}) => {
   if (stompClient) throw new Error("Disconnect before changing socket configuration")
@@ -65,7 +66,13 @@ export const connectSocket = () => {
 }
 
 const clearSubscriptions = () => {
-  subscriptions.forEach((subscription) => subscription.unsubscribe())
+  subscriptions.forEach((subscription) => {
+    try {
+      subscription.unsubscribe()
+    } catch {
+      return undefined
+    }
+  })
   subscriptions = []
 }
 
