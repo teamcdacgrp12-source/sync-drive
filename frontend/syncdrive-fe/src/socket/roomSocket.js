@@ -28,7 +28,13 @@ const getCurrentUser = () => {
   }
 }
 
-const parsePayload = (payload) => JSON.parse(payload.body)
+const parsePayload = (payload) => {
+  try {
+    return JSON.parse(payload.body)
+  } catch {
+    return null
+  }
+}
 
 export const isSocketConnected = () => Boolean(stompClient?.connected)
 
@@ -82,11 +88,17 @@ export const subscribeToRoom = async (roomId, handlers = {}) => {
   const user = getCurrentUser()
 
   subscriptions = [
-    client.subscribe(topics.messages, (payload) => handlers.onMessage?.(parsePayload(payload))),
-    client.subscribe(topics.participants, (payload) => handlers.onParticipants?.(parsePayload(payload))),
+    client.subscribe(topics.messages, (payload) => {
+      const message = parsePayload(payload)
+      if (message) handlers.onMessage?.(message)
+    }),
+    client.subscribe(topics.participants, (payload) => {
+      const participants = parsePayload(payload)
+      if (participants) handlers.onParticipants?.(participants)
+    }),
     client.subscribe(topics.signals, (payload) => {
       const signal = parsePayload(payload)
-      if (signal.sender !== user?.username) handlers.onSignal?.(signal)
+      if (signal && signal.sender !== user?.username) handlers.onSignal?.(signal)
     }),
   ]
 
