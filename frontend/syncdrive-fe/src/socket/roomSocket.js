@@ -2,12 +2,14 @@ import SockJS from "sockjs-client"
 import Stomp from "stompjs"
 import { ROOM_EVENTS, roomDestinations, roomTopics } from "./roomEvents"
 
-const socketUrl = import.meta.env.VITE_CHAT_SOCKET_URL ?? "http://localhost:8083/ws"
+const defaultSocketUrl = import.meta.env.VITE_CHAT_SOCKET_URL ?? "http://localhost:8083/ws"
 const userKey = "syncdrive.user"
 
 let stompClient = null
 let activeRoomId = null
 let subscriptions = []
+let socketUrl = defaultSocketUrl
+let connectHeaders = {}
 const statusListeners = new Set()
 
 const reportStatus = (status) => {
@@ -38,6 +40,12 @@ const parsePayload = (payload) => {
 
 export const isSocketConnected = () => Boolean(stompClient?.connected)
 
+export const configureSocket = ({ url = defaultSocketUrl, headers = {} } = {}) => {
+  if (stompClient) throw new Error("Disconnect before changing socket configuration")
+  socketUrl = url
+  connectHeaders = headers
+}
+
 export const connectSocket = () => {
   if (stompClient) return Promise.resolve(stompClient)
 
@@ -45,7 +53,7 @@ export const connectSocket = () => {
   stompClient.debug = () => {}
 
   return new Promise((resolve, reject) => {
-    stompClient.connect({}, () => {
+    stompClient.connect(connectHeaders, () => {
       reportStatus("connected")
       resolve(stompClient)
     }, (error) => {
