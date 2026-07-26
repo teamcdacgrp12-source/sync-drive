@@ -8,6 +8,17 @@ const userKey = "syncdrive.user"
 let stompClient = null
 let activeRoomId = null
 let subscriptions = []
+const statusListeners = new Set()
+
+const reportStatus = (status) => {
+  statusListeners.forEach((listener) => listener(status))
+}
+
+export const subscribeToSocketStatus = (listener) => {
+  statusListeners.add(listener)
+  listener(isSocketConnected() ? "connected" : "disconnected")
+  return () => statusListeners.delete(listener)
+}
 
 const getCurrentUser = () => {
   try {
@@ -28,8 +39,12 @@ export const connectSocket = () => {
   stompClient.debug = () => {}
 
   return new Promise((resolve, reject) => {
-    stompClient.connect({}, () => resolve(stompClient), (error) => {
+    stompClient.connect({}, () => {
+      reportStatus("connected")
+      resolve(stompClient)
+    }, (error) => {
       stompClient = null
+      reportStatus("error")
       reject(error)
     })
   })
@@ -50,6 +65,7 @@ export const disconnectSocket = () => {
   stompClient = null
 
   if (client.connected) client.disconnect()
+  reportStatus("disconnected")
 }
 
 export const leaveRoomChannel = () => {
