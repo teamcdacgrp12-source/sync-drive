@@ -1,0 +1,25 @@
+.pixel-snow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pixel-snow span {
+  position: absolute;
+  top: -1rem;
+  width: 0.35rem;
+  height: 0.35rem;
+  background: rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  animation: pixel-fall 8s linear infinite;
+}
+
+.pixel-snow span:nth-child(odd) { animation-duration: 7s; }
+.pixel-snow span:nth-child(3n) { animation-duration: 9s; }
+
+@keyframes pixel-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate3d(var(--x, 6rem), 110vh, 0) rotate(720deg); opacity: 0; }
+}
