@@ -1,12 +1,15 @@
 package com.syncdrive.chat.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Instant;
 
 public class SignalMessage {
     private String roomId;
-    private Long senderId;
-    private Long targetUserId;
-    private SignalType type;
+    @JsonProperty("sender")
+    private String senderId;
+    private String targetUserId;
+    private String type;
     private String payload;
     private Instant timestamp;
 
@@ -14,7 +17,7 @@ public class SignalMessage {
         this.timestamp = Instant.now();
     }
 
-    public SignalMessage(String roomId, Long senderId, Long targetUserId, SignalType type, String payload) {
+    public SignalMessage(String roomId, String senderId, String targetUserId, String type, String payload) {
         this.roomId = roomId;
         this.senderId = senderId;
         this.targetUserId = targetUserId;
@@ -31,27 +34,27 @@ public class SignalMessage {
         this.roomId = roomId;
     }
 
-    public Long getSenderId() {
+    public String getSenderId() {
         return senderId;
     }
 
-    public void setSenderId(Long senderId) {
+    public void setSenderId(String senderId) {
         this.senderId = senderId;
     }
 
-    public Long getTargetUserId() {
+    public String getTargetUserId() {
         return targetUserId;
     }
 
-    public void setTargetUserId(Long targetUserId) {
+    public void setTargetUserId(String targetUserId) {
         this.targetUserId = targetUserId;
     }
 
-    public SignalType getType() {
+    public String getType() {
         return type;
     }
 
-    public void setType(SignalType type) {
+    public void setType(String type) {
         this.type = type;
     }
 
@@ -71,10 +74,4 @@ public class SignalMessage {
         this.timestamp = timestamp;
     }
 
-    public enum SignalType {
-        OFFER,
-        ANSWER,
-        ICE_CANDIDATE,
-        MEDIA_STATE
-    }
 }
