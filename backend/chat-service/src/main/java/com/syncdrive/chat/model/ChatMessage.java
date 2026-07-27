@@ -1,10 +1,14 @@
 package com.syncdrive.chat.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.Instant;
 
 public class ChatMessage {
     private String roomId;
-    private Long senderId;
+    @JsonProperty("sender")
+    private String senderId;
+    private Long userId;
     private String senderName;
     private String content;
     private MessageType type;
@@ -15,7 +19,7 @@ public class ChatMessage {
         this.type = MessageType.CHAT;
     }
 
-    public ChatMessage(String roomId, Long senderId, String senderName, String content, MessageType type) {
+    public ChatMessage(String roomId, String senderId, String senderName, String content, MessageType type) {
         this.roomId = roomId;
         this.senderId = senderId;
         this.senderName = senderName;
@@ -32,12 +36,20 @@ public class ChatMessage {
         this.roomId = roomId;
     }
 
-    public Long getSenderId() {
+    public String getSenderId() {
         return senderId;
     }
 
-    public void setSenderId(Long senderId) {
+    public void setSenderId(String senderId) {
         this.senderId = senderId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getSenderName() {
@@ -76,6 +88,8 @@ public class ChatMessage {
         CHAT,
         JOIN,
         LEAVE,
-        SYSTEM
+        SYSTEM,
+        HOST_LEFT,
+        SYNC
     }
 }
