@@ -1,8 +1,5 @@
 import { ArrowRight, MessageCircleMore, MonitorPlay, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import FloatingLines from '@/components/effects/FloatingLines'
-import GradientText from '@/components/effects/GradientText'
-import PixelSnow from '@/components/effects/PixelSnow'
 
 const highlights = [
   { icon: MonitorPlay, title: 'Stay in sync', text: 'Start a video and keep every viewer on the same moment.' },
@@ -12,12 +9,10 @@ const highlights = [
 
 export default function Landing() {
   return (
-    <div className="relative space-y-16 py-10 sm:py-20">
-      <FloatingLines />
-      <PixelSnow />
-      <section className="relative mx-auto max-w-3xl text-center">
+    <div className="space-y-16 py-10 sm:py-20">
+      <section className="mx-auto max-w-3xl text-center">
         <p className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-indigo-600">Watch together</p>
-        <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-6xl">Every watch party, perfectly in <GradientText>sync</GradientText>.</h1>
+        <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-6xl">Every watch party, perfectly in sync.</h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">SyncDrive brings video, conversation, and your favorite people into one shared room.</p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link to="/register" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-indigo-600 px-8 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
