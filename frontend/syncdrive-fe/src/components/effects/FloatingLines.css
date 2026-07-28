@@ -1,0 +1,25 @@
+.floating-lines {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.floating-lines span {
+  position: absolute;
+  width: 42rem;
+  height: 1px;
+  top: calc(10% + var(--line-index) * 12%);
+  left: calc(-30rem + var(--line-index) * 8rem);
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.38), transparent);
+  transform: rotate(-24deg);
+  animation: float-line calc(8s + var(--line-index) * 0.8s) ease-in-out infinite alternate;
+  animation-delay: calc(var(--line-index) * -0.7s);
+}
+
+@keyframes float-line {
+  to {
+    transform: translateX(16rem) rotate(-24deg);
+    opacity: 0.25;
+  }
+}
