@@ -1,0 +1,15 @@
+.gradient-text {
+  display: inline-block;
+  background: linear-gradient(110deg, #4f46e5 8%, #8b5cf6 38%, #ec4899 62%, #4f46e5 92%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-text-shift 6s linear infinite;
+}
+
+@keyframes gradient-text-shift {
+  to {
+    background-position: 220% center;
+  }
+}
