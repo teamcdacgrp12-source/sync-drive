@@ -1,0 +1,21 @@
+.pixel-snow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pixel-snow i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 8px rgba(199, 210, 254, 0.8);
+  animation: pixel-fall linear infinite;
+}
+
+@keyframes pixel-fall {
+  to {
+    transform: translate3d(var(--drift), 115vh, 0);
+  }
+}
