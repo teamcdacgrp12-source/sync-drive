@@ -279,6 +279,41 @@
   background: #4f46e5;
 }
 
+.room-view-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 16px;
+}
+
+.room-view-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.room-view-main {
+  min-width: 0;
+}
+
+.room-view-player-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.room-view-sidebar {
+  display: grid;
+  grid-template-rows: minmax(220px, 1fr) minmax(280px, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
 .media-controls-row {
   display: flex;
   flex-wrap: wrap;
@@ -303,6 +338,16 @@
 .media-control-pill--active {
   color: #fff;
   background: #4f46e5;
+}
+
+@media (max-width: 1000px) {
+  .room-view-content {
+    grid-template-columns: 1fr;
+  }
+
+  .room-view-sidebar {
+    grid-template-rows: minmax(220px, 1fr) minmax(260px, 1fr);
+  }
 }
 
 @keyframes room-message-in {
