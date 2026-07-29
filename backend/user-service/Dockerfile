@@ -3,10 +3,10 @@ WORKDIR /workspace
 
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw -B -DskipTests dependency:go-offline
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
 COPY src src
-RUN ./mvnw -B -DskipTests package
+RUN --mount=type=cache,id=syncdrive-maven,target=/root/.m2 ./mvnw -B -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
 RUN useradd --system --create-home --uid 10001 syncdrive

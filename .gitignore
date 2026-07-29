@@ -7,7 +7,6 @@ target/
 *.iws
 *.iml
 *.ipr
-.vscode/
 .settings/
 .classpath
 .project
@@ -32,8 +31,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # ---------- Environment ----------
-.env
-.env.local
 .env.*.local
 
 # ---------- OS ----------
@@ -43,3 +40,4 @@ Thumbs.db
 # ---------- Project ----------
 uploads/*
 !uploads/.gitkeep
+config.bat
