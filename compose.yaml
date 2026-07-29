@@ -1,0 +1,183 @@
+name: syncdrive
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-syncdrive_dev_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/01-create-databases.sql:/docker-entrypoint-initdb.d/01-create-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    networks: [syncdrive]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks: [syncdrive]
+
+  discovery-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/discovery-service:${IMAGE_TAG:-latest}
+    build: ./backend/discovery-service
+    restart: unless-stopped
+    ports:
+      - "${EUREKA_PORT:-8761}:8761"
+    networks: [syncdrive]
+
+  gateway-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/gateway-service:${IMAGE_TAG:-latest}
+    build: ./backend/gateway-service
+    restart: unless-stopped
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: gateway-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      JWT_SECRET: ${JWT_SECRET:-5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
+      CHAT_WEBSOCKET_URI: ws://chat-service:8083
+      FRONTEND_ORIGIN: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  auth-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/auth-service:${IMAGE_TAG:-latest}
+    build: ./backend/auth-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-syncdrive_dev_password}
+      JWT_SECRET: ${JWT_SECRET:-5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: auth-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  user-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/user-service:${IMAGE_TAG:-latest}
+    build: ./backend/user-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/user_db?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-syncdrive_dev_password}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: user-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+    volumes:
+      - ./uploads:/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  room-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/room-service:${IMAGE_TAG:-latest}
+    build: ./backend/room-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/room_db?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-syncdrive_dev_password}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: room-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  chat-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/chat-service:${IMAGE_TAG:-latest}
+    build: ./backend/chat-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: chat-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+    ports:
+      - "${CHAT_PORT:-8083}:8083"
+    depends_on:
+      redis:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  stream-service:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/stream-service:${IMAGE_TAG:-latest}
+    build: ./backend/stream-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/stream_db?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-syncdrive_dev_password}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: stream-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks: [syncdrive]
+
+  frontend:
+    image: ${REGISTRY_NAMESPACE:-syncdrive-local}/frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ./frontend/syncdrive-fe
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:8080/api}
+        VITE_CHAT_SOCKET_URL: ${PUBLIC_CHAT_SOCKET_URL:-http://localhost:8083/ws}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+      chat-service:
+        condition: service_started
+    networks: [syncdrive]
+
+networks:
+  syncdrive:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
