@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = Join-Path $projectRoot 'backend'
 $logDirectory = Join-Path $PSScriptRoot 'logs'
+$processFile = Join-Path $logDirectory 'backend-processes.json'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 
 $services = @(
@@ -20,6 +21,8 @@ $services = @(
     'stream-service'
 )
 
+$startedProcesses = @()
+
 foreach ($service in $services) {
     $serviceDirectory = Join-Path $backendRoot $service
     $wrapper = Join-Path $serviceDirectory 'mvnw.cmd'
@@ -29,12 +32,21 @@ foreach ($service in $services) {
 
     $logFile = Join-Path $logDirectory "$service.log"
     $command = "mvnw.cmd spring-boot:run > `"$logFile`" 2>&1"
-    Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command) -WorkingDirectory $serviceDirectory -WindowStyle Hidden
-    Write-Host "Started $service (log: $logFile)"
+    $process = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $command) -WorkingDirectory $serviceDirectory -WindowStyle Hidden -PassThru
+    $startedProcesses += [PSCustomObject]@{
+        Service = $service
+        ProcessId = $process.Id
+        ServiceDirectory = $serviceDirectory
+        StartedAtUtc = [DateTime]::UtcNow.ToString('o')
+    }
+    $startedProcesses | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $processFile -Encoding utf8
+
+    Write-Host "Started $service (PID: $($process.Id), log: $logFile)"
 
     if ($service -ne $services[-1] -and $StartupDelaySeconds -gt 0) {
         Start-Sleep -Seconds $StartupDelaySeconds
     }
 }
 
-Write-Host 'All backend services were launched in dependency order.'
+Write-Host "All backend services were launched in dependency order."
+Write-Host "Process registry: $processFile"
