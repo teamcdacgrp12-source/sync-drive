@@ -10,6 +10,7 @@ import RoomHeader from "./RoomHeader";
 import VideoPlayer from "./VideoPlayer";
 import ChatPanel from "./ChatPanel";
 import ParticipantList from "./ParticipantList";
+import RoomAssistant from "./RoomAssistant";
 import {
   connectSocket,
   disconnectSocket,
@@ -17,7 +18,7 @@ import {
 } from "../../socket/roomSocket";
 import { authUtils } from "../auth/auth.utils";
 import { useWebRTC } from "../../hooks/useWebRTC";
-import { createMp4Stream } from "../../hooks/useMp4Stream";
+import { createMp4Stream } from "../../hooks/useMP4Stream";
 import HostControls from "./HostControls";
 import PlayerControls from "./PlayerControls";
 import "./room.css";
@@ -175,6 +176,8 @@ const RoomView = () => {
   // --- Stream Selection Logic ---
   const hostProfile = profileMap[hostId];
   const hostUsername = hostProfile?.username;
+  const hostDisplayName =
+    hostProfile?.displayName || hostProfile?.username || "Unknown host";
 
   // Determine which stream to display in the VideoPlayer
   const activeStream = isHost
@@ -594,6 +597,78 @@ const RoomView = () => {
     navigate("/login");
   };
 
+  const getAssistantRoomContext = () => {
+    const participantNames = participants.map((participantId) => {
+      const profile =
+        profileMap[participantId] || profileMap[Number(participantId)];
+      return (
+        profile?.displayName ||
+        profile?.username ||
+        `Participant ${participantId}`
+      );
+    });
+
+    let mediaType = "None";
+    if (playerState.isYoutube) mediaType = "YouTube";
+    else if (playerState.isMp4) mediaType = "MP4";
+    else if (playerState.mediaName === "Host Screen") mediaType = "Screen share";
+
+    return {
+      host: isHost,
+      hostName: hostDisplayName,
+      participantNames,
+      mediaName: playerState.mediaName || "Nothing selected",
+      mediaType,
+      playing: playerState.isPlaying,
+      currentTime: isHost
+        ? playerState.currentTime || 0
+        : lastHostTimeRef.current || 0,
+      duration: playerState.duration || 0,
+    };
+  };
+
+  const handleShareAssistantAnswer = (assistantMessage) => {
+    const answer =
+      typeof assistantMessage === "string"
+        ? assistantMessage
+        : assistantMessage.content;
+    const isPoll =
+      assistantMessage?.responseType === "POLL" &&
+      assistantMessage.poll?.options?.length >= 2;
+    const isStructuredAnswer =
+      !isPoll &&
+      typeof assistantMessage === "object" &&
+      (assistantMessage.title || assistantMessage.summary);
+
+    const metadata = isPoll
+      ? {
+          card: {
+            type: "POLL",
+            title: assistantMessage.title || "Room poll",
+            summary: assistantMessage.summary || "",
+            question: assistantMessage.poll.question,
+            options: assistantMessage.poll.options,
+            pollId:
+              globalThis.crypto?.randomUUID?.() ||
+              `poll-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+            voteCounts: assistantMessage.poll.options.map(() => 0),
+            totalVotes: 0,
+          },
+        }
+      : isStructuredAnswer
+        ? {
+            card: {
+              type: "ASSISTANT_RESPONSE",
+              title: assistantMessage.title || "Room assistant",
+              summary: assistantMessage.summary || "",
+              sections: assistantMessage.sections || [],
+            },
+          }
+        : {};
+
+    sendMessage(roomCode, `✨ Room Assistant\n${answer}`, "CHAT", metadata);
+  };
+
   // Sync Profiles for all participants to map IDs to Usernames
   useEffect(() => {
     const syncProfiles = async () => {
@@ -831,6 +906,25 @@ const RoomView = () => {
               } catch (e) {
                 // console.error("Failed to parse SYNC payload", e);
               }
+            } else if (
+              msg.type === "POLL_VOTE" &&
+              msg.card?.pollId &&
+              Array.isArray(msg.card.voteCounts)
+            ) {
+              setMessages((prev) =>
+                prev.map((message) =>
+                  message.card?.pollId === msg.card.pollId
+                    ? {
+                        ...message,
+                        card: {
+                          ...message.card,
+                          voteCounts: msg.card.voteCounts,
+                          totalVotes: msg.card.totalVotes,
+                        },
+                      }
+                    : message
+                )
+              );
             } else if (msg.type === "CHAT") {
               setMessages((prev) => {
                 const isDuplicate = prev.some(
@@ -1020,6 +1114,12 @@ const RoomView = () => {
               )}
             </div>
           </div>
+
+          <RoomAssistant
+            roomCode={roomCode}
+            getRoomContext={getAssistantRoomContext}
+            onShare={handleShareAssistantAnswer}
+          />
         </div>
 
         <div className="sidebar">

@@ -1,158 +1,163 @@
-import SockJS from "sockjs-client"
-import Stomp from "stompjs"
-import { ROOM_EVENTS, roomDestinations, roomTopics } from "./roomEvents"
+import SockJS from "sockjs-client";
+import Stomp from "stompjs";
 
-const defaultSocketUrl = import.meta.env.VITE_CHAT_SOCKET_URL ?? "http://localhost:8083/ws"
-const userKey = "syncdrive.user"
+let stompClient = null;
+const userKey = "syncdrive.user";
+const socketUrl =
+  import.meta.env.VITE_CHAT_SOCKET_URL ?? "http://localhost:8083/ws";
 
-let stompClient = null
-let activeRoomId = null
-let subscriptions = []
-let socketUrl = defaultSocketUrl
-let connectHeaders = {}
-const statusListeners = new Set()
-
-const reportStatus = (status) => {
-  statusListeners.forEach((listener) => listener(status))
-}
-
-export const subscribeToSocketStatus = (listener) => {
-  statusListeners.add(listener)
-  listener(isSocketConnected() ? "connected" : "disconnected")
-  return () => statusListeners.delete(listener)
-}
-
-const getCurrentUser = () => {
-  try {
-    return JSON.parse(sessionStorage.getItem(userKey) ?? "null")
-  } catch {
-    return null
+// Updated signature to accept onSignalReceived
+export const connectSocket = (
+  roomId,
+  onMessageReceived,
+  onUserJoined,
+  onSignalReceived
+) => {
+  if (stompClient) {
+    // console.log("WebSocket connection already active or pending.");
+    return;
   }
-}
 
-const parsePayload = (payload) => {
-  try {
-    return JSON.parse(payload.body)
-  } catch {
-    return null
-  }
-}
+  const socket = new SockJS(socketUrl);
+  stompClient = Stomp.over(socket);
+  stompClient.debug = () => {};
 
-export const isSocketConnected = () => Boolean(stompClient?.connected)
-export const getActiveRoomId = () => activeRoomId
+  stompClient.connect(
+    {},
+    () => {
+      // console.log("WebSocket Connected!");
 
-export const configureSocket = ({ url = defaultSocketUrl, headers = {} } = {}) => {
-  if (stompClient) throw new Error("Disconnect before changing socket configuration")
-  socketUrl = url
-  connectHeaders = headers
-}
+      // 1. Subscribe to Chat Messages (Includes JOIN/LEAVE)
+      stompClient.subscribe(`/topic/room/${roomId}`, (payload) => {
+        const msg = JSON.parse(payload.body);
+        // console.log("SOCKET MSG RECEIVED:", payload.body);
+        onMessageReceived(msg);
+      });
 
-export const connectSocket = () => {
-  if (stompClient) return Promise.resolve(stompClient)
+      // 2. Subscribe to Participant Updates
+      stompClient.subscribe(`/topic/room/${roomId}/participants`, (payload) => {
+        onUserJoined(JSON.parse(payload.body));
+      });
 
-  stompClient = Stomp.over(new SockJS(socketUrl))
-  stompClient.debug = () => {}
+      // 3. Subscribe to Video Signals (WebRTC)
+      stompClient.subscribe(`/topic/room/${roomId}/signal`, (payload) => {
+        if (onSignalReceived) {
+          const signal = JSON.parse(payload.body);
+          const currentUser = JSON.parse(sessionStorage.getItem(userKey));
 
-  return new Promise((resolve, reject) => {
-    stompClient.connect(connectHeaders, () => {
-      reportStatus("connected")
-      resolve(stompClient)
-    }, (error) => {
-      stompClient = null
-      reportStatus("error")
-      reject(error)
-    })
-  })
-}
+          // Filter out my own signals so I don't process my own Offer/Answer
+          if (currentUser && signal.sender !== currentUser.username) {
+            onSignalReceived(signal);
+          }
+        }
+      });
 
-const clearSubscriptions = () => {
-  subscriptions.forEach((subscription) => {
-    try {
-      subscription.unsubscribe()
-    } catch {
-      return undefined
+      // 4. Send JOIN Signal (for Chat Presence)
+      const user = JSON.parse(sessionStorage.getItem(userKey));
+      if (user) {
+        stompClient.send(
+          `/app/chat/${roomId}/join`,
+          {},
+          JSON.stringify({
+            sender: user.username,
+            userId: user.id,
+            type: "JOIN",
+          })
+        );
+      }
+    },
+    (error) => {
+      // console.log("Socket error:", error);
+      // Reset so we can retry later
+      stompClient = null;
     }
-  })
-  subscriptions = []
-}
+  );
+};
+
+// Send WebRTC Signals (Offer, Answer, ICE)
+export const sendSignal = (roomId, type, payload) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(sessionStorage.getItem(userKey));
+
+    // Safety Check: Ensure username exists
+    if (!user || !user.username) {
+      // console.error("Cannot send signal: User username is missing!", user);
+      return;
+    }
+
+    const signalMessage = {
+      type: type, // e.g. "offer"
+      roomId: roomId,
+      sender: user.username,
+
+      // Stringify the payload again so Java treats it as a simple String
+      payload: JSON.stringify(payload),
+    };
+
+    // console.log("Sending Signal:", signalMessage.type, "from", signalMessage.sender);
+
+    stompClient.send(
+      `/app/chat/${roomId}/signal`,
+      {},
+      JSON.stringify(signalMessage)
+    );
+  }
+};
+
+// Structured metadata is optional; plain content remains the fallback for older clients.
+export const sendMessage = (
+  roomId,
+  messageContent,
+  typeOverride = "CHAT",
+  metadata = {},
+) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(sessionStorage.getItem(userKey));
+    const chatMessage = {
+      sender: user.username,
+      content: messageContent,
+      type: typeOverride,
+    };
+    if (metadata.card) {
+      chatMessage.card = metadata.card;
+    }
+
+    stompClient.send(
+      `/app/chat/${roomId}/sendMessage`,
+      {},
+      JSON.stringify(chatMessage)
+    );
+  }
+};
+
+export const notifyHostLeft = (roomId) => {
+  if (stompClient && stompClient.connected) {
+    const user = JSON.parse(sessionStorage.getItem(userKey));
+    const message = {
+      sender: user.username,
+      type: "HOST_LEFT",
+      content: "Host has left the room. Closing in 5 seconds...",
+    };
+
+    stompClient.send(
+      `/app/chat/${roomId}/sendMessage`,
+      {},
+      JSON.stringify(message)
+    );
+  }
+};
 
 export const disconnectSocket = () => {
-  clearSubscriptions()
-  activeRoomId = null
-
-  if (!stompClient) return
-
-  const client = stompClient
-  stompClient = null
-
-  if (client.connected) client.disconnect()
-  reportStatus("disconnected")
-}
-
-export const leaveRoomChannel = () => {
-  clearSubscriptions()
-  activeRoomId = null
-}
-
-export const subscribeToRoom = async (roomId, handlers = {}) => {
-  const client = await connectSocket()
-  clearSubscriptions()
-  activeRoomId = roomId
-
-  const topics = roomTopics(roomId)
-  const user = getCurrentUser()
-
-  subscriptions = [
-    client.subscribe(topics.messages, (payload) => {
-      const message = parsePayload(payload)
-      if (message) handlers.onMessage?.(message)
-    }),
-    client.subscribe(topics.participants, (payload) => {
-      const participants = parsePayload(payload)
-      if (participants) handlers.onParticipants?.(participants)
-    }),
-    client.subscribe(topics.signals, (payload) => {
-      const signal = parsePayload(payload)
-      if (signal && signal.sender !== user?.username) handlers.onSignal?.(signal)
-    }),
-  ]
-
-  if (user?.username) {
-    client.send(roomDestinations(roomId).join, {}, JSON.stringify({
-      sender: user.username,
-      userId: user.id,
-      type: ROOM_EVENTS.USER_JOINED,
-    }))
+  if (stompClient) {
+    if (stompClient.connected) {
+      try {
+        stompClient.disconnect(() => {
+          // console.log("Socket Disconnected");
+        });
+      } catch (e) {
+        // Ignore already closed errors
+      }
+    }
+    stompClient = null;
   }
-
-  return leaveRoomChannel
-}
-
-const send = (roomId, destination, message) => {
-  if (!isSocketConnected() || activeRoomId !== roomId) return false
-  stompClient.send(destination, {}, JSON.stringify(message))
-  return true
-}
-
-export const sendMessage = (roomId, content, type = ROOM_EVENTS.CHAT_MESSAGE) => {
-  const user = getCurrentUser()
-  if (!user?.username) return false
-
-  return send(roomId, roomDestinations(roomId).messages, {
-    sender: user.username,
-    content,
-    type,
-  })
-}
-
-export const sendSignal = (roomId, type, payload) => {
-  const user = getCurrentUser()
-  if (!user?.username) return false
-
-  return send(roomId, roomDestinations(roomId).signals, {
-    roomId,
-    sender: user.username,
-    type,
-    payload: JSON.stringify(payload),
-  })
-}
+};
